@@ -1,1 +1,7 @@
-
+__pycache__/
+venv/
+instance/
+*.pyc
+*.db
+.env
+config.py
