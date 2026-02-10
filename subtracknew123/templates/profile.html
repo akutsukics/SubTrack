@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - SubTrack{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <h1 class="page-title">Profile Settings</h1>
+        <p class="page-subtitle">Manage your account and preferences</p>
+    </div>
+
+    <div class="settings-grid">
+        <div class="settings-card">
+            <div class="settings-header">
+                <h2 class="settings-title">Account Information</h2>
+            </div>
+            <div class="settings-content">
+                <div class="info-row">
+                    <div class="info-label">Email Address</div>
+                    <div class="info-value">{{ user.email }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Account Created</div>
+                    <div class="info-value">{{ user.created_at.strftime('%B %d, %Y') }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Total Subscriptions</div>
+                    <div class="info-value">{{ user.subscriptions|length }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <div class="settings-header">
+                <h2 class="settings-title">Budget Settings</h2>
+            </div>
+            <div class="settings-content">
+                <form method="POST" action="{{ url_for('update_profile') }}" class="budget-form">
+                    <div class="form-group">
+                        <label for="monthly_budget" class="form-label">Monthly Budget Limit</label>
+                        <div class="input-with-prefix">
+                            <span class="input-prefix">$</span>
+                            <input 
+                                type="number" 
+                                id="monthly_budget" 
+                                name="monthly_budget" 
+                                class="form-input with-prefix" 
+                                value="{{ user.monthly_budget }}"
+                                step="0.01"
+                                min="0"
+                                placeholder="0.00"
+                            >
+                        </div>
+                        <div class="form-hint">Set a monthly spending limit to track your budget</div>
+                    </div>
+
+                    <div class="budget-status">
+                        {% if user.monthly_budget > 0 %}
+                            {% set total_cost = user.get_total_monthly_cost() %}
+                            {% set remaining = user.monthly_budget - total_cost %}
+                            {% set percentage = (total_cost / user.monthly_budget * 100) if user.monthly_budget > 0 else 0 %}
+                            
+                            <div class="budget-bar">
+                                <div class="budget-bar-fill {% if percentage >= 100 %}budget-exceeded{% endif %}" 
+                                     style="width: {{ [percentage, 100]|min }}%">
+                                </div>
+                            </div>
+                            
+                            <div class="budget-info">
+                                <div class="budget-spent">
+                                    <span class="budget-label">Spent</span>
+                                    <span class="budget-amount">${{ "%.2f"|format(total_cost) }}</span>
+                                </div>
+                                <div class="budget-remaining {% if remaining < 0 %}text-danger{% endif %}">
+                                    <span class="budget-label">{{ 'Over' if remaining < 0 else 'Remaining' }}</span>
+                                    <span class="budget-amount">${{ "%.2f"|format(remaining|abs) }}</span>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="budget-empty">
+                                <p>No budget limit set. Set a limit to track your spending.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <button type="submit" class="btn-primary btn-full">Update Budget</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <div class="settings-header">
+                <h2 class="settings-title">Notification Preferences</h2>
+            </div>
+            <div class="settings-content">
+                <form method="POST" action="{{ url_for('update_profile') }}" id="notificationForm">
+                    <input type="hidden" name="monthly_budget" value="{{ user.monthly_budget }}">
+                    
+                    <div class="notification-settings">
+                        <div class="notification-item">
+                            <div class="notification-info">
+                                <div class="notification-label">Payment Reminders</div>
+                                <div class="notification-desc">Get notified 3 days before a payment is due</div>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="payment-reminders" name="payment_reminders" 
+                                       {% if user.payment_reminders %}checked{% endif %}
+                                       onchange="saveNotificationPreferences()">
+                                <label for="payment-reminders"></label>
+                            </div>
+                        </div>
+
+                        <div class="notification-item">
+                            <div class="notification-info">
+                                <div class="notification-label">Budget Alerts</div>
+                                <div class="notification-desc">Alert when you exceed your monthly budget</div>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="budget-alerts" name="budget_alerts"
+                                       {% if user.budget_alerts %}checked{% endif %}
+                                       onchange="saveNotificationPreferences()">
+                                <label for="budget-alerts"></label>
+                            </div>
+                        </div>
+
+                        <div class="notification-item">
+                            <div class="notification-info">
+                                <div class="notification-label">Monthly Summary</div>
+                                <div class="notification-desc">Receive a monthly spending summary email</div>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="monthly-summary" name="monthly_summary"
+                                       {% if user.monthly_summary %}checked{% endif %}
+                                       onchange="saveNotificationPreferences()">
+                                <label for="monthly-summary"></label>
+                            </div>
+                        </div>
+
+                        <div class="notification-item">
+                            <div class="notification-info">
+                                <div class="notification-label">New Subscription</div>
+                                <div class="notification-desc">Email confirmation when adding subscriptions</div>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="new-subscription" name="new_subscription"
+                                       {% if user.new_subscription %}checked{% endif %}
+                                       onchange="saveNotificationPreferences()">
+                                <label for="new-subscription"></label>
+                            </div>
+                        </div>
+
+                        <div class="notification-note">
+                            <strong>Note:</strong> Notification preferences are saved automatically. 
+                            Email notifications will be sent to {{ user.email }}.
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <div class="settings-header">
+                <h2 class="settings-title">Spending Summary</h2>
+            </div>
+            <div class="settings-content">
+                {% set total_monthly = user.get_total_monthly_cost() %}
+                {% set total_yearly = total_monthly * 12 %}
+                
+                <div class="spending-stats">
+                    <div class="spending-stat">
+                        <div class="spending-icon">💰</div>
+                        <div class="spending-info">
+                            <div class="spending-label">Monthly Total</div>
+                            <div class="spending-value">${{ "%.2f"|format(total_monthly) }}</div>
+                        </div>
+                    </div>
+
+                    <div class="spending-stat">
+                        <div class="spending-icon">📅</div>
+                        <div class="spending-info">
+                            <div class="spending-label">Yearly Total</div>
+                            <div class="spending-value">${{ "%.2f"|format(total_yearly) }}</div>
+                        </div>
+                    </div>
+
+                    <div class="spending-stat">
+                        <div class="spending-icon">📊</div>
+                        <div class="spending-info">
+                            <div class="spending-label">Daily Average</div>
+                            <div class="spending-value">${{ "%.2f"|format(total_monthly / 30) }}</div>
+                        </div>
+                    </div>
+
+                    <div class="spending-stat">
+                        <div class="spending-icon">🎯</div>
+                        <div class="spending-info">
+                            <div class="spending-label">Active Services</div>
+                            <div class="spending-value">{{ user.subscriptions|length }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-card card-danger">
+            <div class="settings-header">
+                <h2 class="settings-title">Account Actions</h2>
+            </div>
+            <div class="settings-content">
+                <div class="danger-zone">
+                    <p class="danger-text">
+                        Need to take a break? You can log out or manage your account settings.
+                    </p>
+                    <div class="danger-actions">
+                        <a href="{{ url_for('logout') }}" class="btn-secondary">Logout</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function saveNotificationPreferences() {
+    document.getElementById('notificationForm').submit();
+}
+</script>
+{% endblock %}

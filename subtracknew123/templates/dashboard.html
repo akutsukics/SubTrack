@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SubTrack{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">Overview of your subscriptions and spending</p>
+    </div>
+
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="summary-label">This Month</div>
+            <div class="summary-value">${{ "%.2f"|format(summary.monthly) }}</div>
+            <div class="summary-sublabel">{{ summary.count }} active subscription{{ 's' if summary.count != 1 else '' }}</div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-label">This Year</div>
+            <div class="summary-value">${{ "%.2f"|format(summary.yearly) }}</div>
+            <div class="summary-sublabel">Projected annual cost</div>
+        </div>
+
+        <div class="summary-card {% if budget_alert %}budget-alert{% endif %}">
+            <div class="summary-label">Budget Status</div>
+            {% if user.monthly_budget > 0 %}
+                <div class="summary-value">${{ "%.2f"|format(user.monthly_budget - summary.monthly) }}</div>
+                <div class="summary-sublabel">
+                    {% if budget_alert %}
+                        ⚠️ Over budget by ${{ "%.2f"|format(summary.monthly - user.monthly_budget) }}
+                    {% else %}
+                        Remaining from ${{ "%.2f"|format(user.monthly_budget) }} budget
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="summary-value">—</div>
+                <div class="summary-sublabel">No budget set</div>
+            {% endif %}
+        </div>
+
+        <div class="summary-card card-savings">
+            <div class="summary-label">Potential Savings</div>
+            <div class="summary-value">${{ "%.2f"|format(summary.monthly * 0.15) }}</div>
+            <div class="summary-sublabel">Review unused subscriptions</div>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="dashboard-card card-full">
+            <div class="card-header">
+                <h2 class="card-title">Upcoming Payments</h2>
+                <span class="card-subtitle">Next 30 days</span>
+            </div>
+            <div class="card-content">
+                {% if upcoming %}
+                    <div class="upcoming-list">
+                        {% for item in upcoming %}
+                        <div class="upcoming-item">
+                            <div class="upcoming-info">
+                                <div class="upcoming-name">{{ item.subscription.name }}</div>
+                                <div class="upcoming-date">{{ item.next_date }}</div>
+                            </div>
+                            <div class="upcoming-right">
+                                <div class="upcoming-price">${{ "%.2f"|format(item.subscription.monthly_price) }}</div>
+                                <div class="upcoming-days">
+                                    {% if item.days_until == 0 %}
+                                        <span class="badge badge-danger">Today</span>
+                                    {% elif item.days_until == 1 %}
+                                        <span class="badge badge-warning">Tomorrow</span>
+                                    {% elif item.days_until <= 7 %}
+                                        <span class="badge badge-warning">{{ item.days_until }} days</span>
+                                    {% else %}
+                                        <span class="badge badge-neutral">{{ item.days_until }} days</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <p>No upcoming payments in the next 30 days</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h2 class="card-title">Category Breakdown</h2>
+            </div>
+            <div class="card-content">
+                {% if summary.count > 0 %}
+                    <div class="category-list">
+                        <div class="category-item">
+                            <div class="category-label">
+                                <span class="category-dot" style="background: #2563EB;"></span>
+                                <span>All Subscriptions</span>
+                            </div>
+                            <div class="category-value">${{ "%.2f"|format(summary.monthly) }}</div>
+                        </div>
+                        <div class="category-item">
+                            <div class="category-label">
+                                <span class="category-dot" style="background: #10B981;"></span>
+                                <span>Average per service</span>
+                            </div>
+                            <div class="category-value">${{ "%.2f"|format(summary.monthly / summary.count) }}</div>
+                        </div>
+                        <div class="category-item">
+                            <div class="category-label">
+                                <span class="category-dot" style="background: #64748B;"></span>
+                                <span>Daily cost</span>
+                            </div>
+                            <div class="category-value">${{ "%.2f"|format(summary.monthly / 30) }}</div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <p>No subscriptions to analyze</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h2 class="card-title">Quick Actions</h2>
+            </div>
+            <div class="card-content">
+                <div class="quick-actions">
+                    <a href="{{ url_for('subscriptions') }}" class="quick-action-btn">
+                        <span class="quick-action-icon">➕</span>
+                        <span class="quick-action-text">Add Subscription</span>
+                    </a>
+                    <a href="{{ url_for('statistics') }}" class="quick-action-btn">
+                        <span class="quick-action-icon">📊</span>
+                        <span class="quick-action-text">View Statistics</span>
+                    </a>
+                    <a href="{{ url_for('profile') }}" class="quick-action-btn">
+                        <span class="quick-action-icon">💰</span>
+                        <span class="quick-action-text">Set Budget</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

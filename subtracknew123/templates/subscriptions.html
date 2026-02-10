@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Subscriptions - SubTrack{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Subscriptions</h1>
+            <p class="page-subtitle">Manage all your recurring payments</p>
+        </div>
+        <button class="btn-primary" onclick="toggleAddForm()">+ Add Subscription</button>
+    </div>
+
+   
+    <div id="addSubscriptionForm" class="form-modal" style="display: none;">
+        <div class="modal-overlay" onclick="toggleAddForm()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Add New Subscription</h2>
+                <button class="modal-close" onclick="toggleAddForm()">&times;</button>
+            </div>
+            <form method="POST" action="{{ url_for('add_subscription') }}" class="subscription-form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="name" class="form-label">Service Name</label>
+                        <input 
+                            type="text" 
+                            id="name" 
+                            name="name" 
+                            class="form-input" 
+                            placeholder="e.g., Netflix, Spotify"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="monthly_price" class="form-label">Monthly Price</label>
+                        <div class="input-with-prefix">
+                            <span class="input-prefix">$</span>
+                            <input 
+                                type="number" 
+                                id="monthly_price" 
+                                name="monthly_price" 
+                                class="form-input with-prefix" 
+                                placeholder="9.99"
+                                step="0.01"
+                                min="0.01"
+                                required
+                            >
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="billing_date" class="form-label">Billing Day</label>
+                        <input 
+                            type="number" 
+                            id="billing_date" 
+                            name="billing_date" 
+                            class="form-input" 
+                            placeholder="15"
+                            min="1"
+                            max="31"
+                            required
+                        >
+                        <div class="form-hint">Day of month (1-31)</div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="toggleAddForm()">Cancel</button>
+                    <button type="submit" class="btn-primary">Add Subscription</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Subscriptions Table -->
+    <div class="table-card">
+        {% if subscriptions %}
+            <div class="table-container">
+                <table class="subscriptions-table">
+                    <thead>
+                        <tr>
+                            <th>Service Name</th>
+                            <th>Monthly Cost</th>
+                            <th>Annual Cost</th>
+                            <th>Billing Day</th>
+                            <th>Next Payment</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sub in subscriptions %}
+                        <tr>
+                            <td>
+                                <div class="subscription-name">
+                                    <span class="subscription-icon">{{ sub.name[0].upper() }}</span>
+                                    <span class="subscription-label">{{ sub.name }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="price-monthly">${{ "%.2f"|format(sub.monthly_price) }}</span>
+                            </td>
+                            <td>
+                                <span class="price-annual">${{ "%.2f"|format(sub.monthly_price * 12) }}</span>
+                            </td>
+                            <td>
+                                <span class="billing-day">{{ sub.billing_date }}{{ 'st' if sub.billing_date == 1 else 'nd' if sub.billing_date == 2 else 'rd' if sub.billing_date == 3 else 'th' }}</span>
+                            </td>
+                            <td>
+                                <span class="next-payment">{{ sub.get_next_payment_date() }}</span>
+                            </td>
+                            <td class="text-right">
+                                <div class="action-buttons">
+                                    <form method="POST" action="{{ url_for('delete_subscription', subscription_id=sub.id) }}" onsubmit="return confirm('Delete {{ sub.name }}?')" style="display: inline;">
+                                        <button type="submit" class="btn-icon btn-danger" title="Delete">
+                                            <span>🗑️</span>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="total-row">
+                            <td><strong>Total</strong></td>
+                            <td><strong>${{ "%.2f"|format(subscriptions|sum(attribute='monthly_price')) }}</strong></td>
+                            <td><strong>${{ "%.2f"|format(subscriptions|sum(attribute='monthly_price') * 12) }}</strong></td>
+                            <td colspan="3"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state-large">
+                <div class="empty-icon">📋</div>
+                <h3 class="empty-title">No subscriptions yet</h3>
+                <p class="empty-text">Start tracking your recurring payments by adding your first subscription.</p>
+                <button class="btn-primary" onclick="toggleAddForm()">+ Add Your First Subscription</button>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Statistics Summary -->
+    {% if subscriptions %}
+    <div class="stats-row">
+        <div class="stat-box">
+            <div class="stat-box-label">Total Subscriptions</div>
+            <div class="stat-box-value">{{ subscriptions|length }}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-box-label">Average Cost</div>
+            <div class="stat-box-value">${{ "%.2f"|format(subscriptions|sum(attribute='monthly_price') / subscriptions|length) }}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-box-label">Most Expensive</div>
+            <div class="stat-box-value">${{ "%.2f"|format(subscriptions|map(attribute='monthly_price')|max) }}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-box-label">Least Expensive</div>
+            <div class="stat-box-value">${{ "%.2f"|format(subscriptions|map(attribute='monthly_price')|min) }}</div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function toggleAddForm() {
+    const form = document.getElementById('addSubscriptionForm');
+    if (form.style.display === 'none') {
+        form.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    } else {
+        form.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// Close modal on ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const form = document.getElementById('addSubscriptionForm');
+        if (form.style.display !== 'none') {
+            toggleAddForm();
+        }
+    }
+});
+</script>
+{% endblock %}

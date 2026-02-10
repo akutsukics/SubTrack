@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - SubTrack{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <h1 class="page-title">Statistics</h1>
+        <p class="page-subtitle">Analyze your subscription spending patterns</p>
+    </div>
+
+    <div class="chart-card">
+        <div class="card-header">
+            <h2 class="card-title">Monthly Spending Trend</h2>
+            <span class="card-subtitle">Last 6 months</span>
+        </div>
+        <div class="card-content">
+            <div class="chart-wrapper">
+                <canvas id="monthlyChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="breakdown-card">
+        <div class="card-header">
+            <h2 class="card-title">Annual Cost by Subscription</h2>
+            <span class="card-subtitle">Sorted by yearly expense</span>
+        </div>
+        <div class="card-content">
+            {% if subscription_data %}
+                <div class="breakdown-table">
+                    <table class="stats-table">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Service</th>
+                                <th>Monthly</th>
+                                <th>Annual</th>
+                                <th>% of Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set total_yearly = subscription_data|sum(attribute='yearly') %}
+                            {% for item in subscription_data %}
+                            <tr>
+                                <td><span class="rank-badge">{{ loop.index }}</span></td>
+                                <td>
+                                    <div class="service-cell">
+                                        <span class="service-icon">{{ item.name[0].upper() }}</span>
+                                        <span class="service-name">{{ item.name }}</span>
+                                    </div>
+                                </td>
+                                <td><span class="amount">${{ "%.2f"|format(item.monthly) }}</span></td>
+                                <td><strong class="amount-large">${{ "%.2f"|format(item.yearly) }}</strong></td>
+                                <td>
+                                    <div class="percentage-bar">
+                                        <div class="percentage-fill" style="width: {{ (item.yearly / total_yearly * 100)|round(1) }}%"></div>
+                                        <span class="percentage-text">{{ "%.1f"|format(item.yearly / total_yearly * 100) }}%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="total-row">
+                                <td colspan="2"><strong>Total Annual Cost</strong></td>
+                                <td><strong>${{ "%.2f"|format(subscription_data|sum(attribute='monthly')) }}</strong></td>
+                                <td><strong class="total-highlight">${{ "%.2f"|format(total_yearly) }}</strong></td>
+                                <td><strong>100%</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p>No subscription data available</p>
+                    <a href="{{ url_for('subscriptions') }}" class="btn-primary">Add Subscriptions</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if subscription_data %}
+    <div class="insights-grid">
+        <div class="insight-card">
+            <div class="insight-icon">💰</div>
+            <div class="insight-content">
+                <div class="insight-label">Total Annual Spending</div>
+                <div class="insight-value">${{ "%.2f"|format(subscription_data|sum(attribute='yearly')) }}</div>
+            </div>
+        </div>
+
+        <div class="insight-card">
+            <div class="insight-icon">📊</div>
+            <div class="insight-content">
+                <div class="insight-label">Average Monthly Cost</div>
+                <div class="insight-value">${{ "%.2f"|format(subscription_data|sum(attribute='monthly') / subscription_data|length) }}</div>
+            </div>
+        </div>
+
+        <div class="insight-card">
+            <div class="insight-icon">🔝</div>
+            <div class="insight-content">
+                <div class="insight-label">Most Expensive</div>
+                <div class="insight-value">{{ subscription_data[0].name }}</div>
+                <div class="insight-sublabel">${{ "%.2f"|format(subscription_data[0].yearly) }}/year</div>
+            </div>
+        </div>
+
+        <div class="insight-card">
+            <div class="insight-icon">💡</div>
+            <div class="insight-content">
+                <div class="insight-label">Potential Savings</div>
+                <div class="insight-value">${{ "%.2f"|format(subscription_data|sum(attribute='yearly') * 0.2) }}</div>
+                <div class="insight-sublabel">By reviewing unused services</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if subscription_data %}
+<script>
+fetch('/api/monthly-data')
+    .then(response => response.json())
+    .then(data => {
+        const ctx = document.getElementById('monthlyChart').getContext('2d');
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.months,
+                datasets: [{
+                    label: 'Monthly Spending',
+                    data: data.totals,
+                    borderColor: '#2563EB',
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#2563EB',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#1E293B',
+                        padding: 12,
+                        titleColor: '#F8FAFC',
+                        bodyColor: '#F8FAFC',
+                        borderColor: '#2563EB',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Total: $' + context.parsed.y.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toFixed(0);
+                            },
+                            color: '#64748B',
+                            font: {
+                                size: 12
+                            }
+                        },
+                        grid: {
+                            color: '#E2E8F0'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#64748B',
+                            font: {
+                                size: 12
+                            }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    })
+    .catch(error => console.error('Error loading chart:', error));
+</script>
+{% endif %}
+{% endblock %}
